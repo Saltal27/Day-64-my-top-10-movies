@@ -1,0 +1,53 @@
+{% extends 'bootstrap/base.html' %}
+
+{% block styles %}
+{{ super() }}
+<link href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,700" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,700" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,700" rel="stylesheet">
+<link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"
+      integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog=="
+      rel="stylesheet"/>
+<link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block title %}My Top 10 Movies{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="heading">My Top 10 Movies</h1>
+    <p class="description">These are my all-time favourite movies.</p>
+
+    {% if all_movies != []: %}
+    <div class="card">
+        <div class="front" style="background-image: url('{{ all_movies[0].img_url }}');">
+            <p class="large">{{ all_movies[0].ranking }}</p>
+        </div>
+        <div class="back">
+            <div>
+                <div class="title">{{ all_movies[0].title }} <span
+                        class="release_date">({{ all_movies[0].year }})</span></div>
+                <div class="rating">
+                    <label>{{ all_movies[0].rating }}</label>
+                    <i class="fas fa-star star"></i>
+                </div>
+                <p class="review">"{{ all_movies[0].review }}"</p>
+                <p class="overview">
+                    {{ all_movies[0].description }}
+                </p>
+
+                <a class="button" href="{{ url_for('edit', movie_id=all_movies[0].id) }}">Update</a>
+                <a class="button delete-button"
+                   href="{{ url_for('delete_movie', movie_id=all_movies[0].id) }}">Delete</a>
+
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="container text-center add">
+    <a class="button" href="{{ url_for('add_movie') }}">Add Movie</a>
+</div>
+
+{% endblock %}
