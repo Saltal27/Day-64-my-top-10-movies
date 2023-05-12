@@ -4,8 +4,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Length
-import imdb
-import http.client
+import requests
+import concurrent.futures
+
+movies_details = []
 
 # Create a Flask app and configure it
 app = Flask(__name__)
@@ -67,17 +69,17 @@ class AddMovieForm(FlaskForm):
 # Data-changing functions
 def update_movie(movie_id, new_rating, new_review):
     """
-    Updates an existing movie in the database with a new rating and review.
+    Updates an existing movie_to_update in the database with a new rating and review.
 
     Args:
-        movie_id (int): The id of the movie to update.
-        new_rating (float): The new rating of the movie.
-        new_review (str): The new review of the movie.
+        movie_id (int): The id of the movie_to_update to update.
+        new_rating (float): The new rating of the movie_to_update.
+        new_review (str): The new review of the movie_to_update.
     """
     with app.app_context():
-        movie = Movie.query.filter_by(id=movie_id).first()
-        movie.rating = new_rating
-        movie.review = new_review
+        movie_to_update = Movie.query.filter_by(id=movie_id).first()
+        movie_to_update.rating = new_rating
+        movie_to_update.review = new_review
         db.session.commit()
 
 
@@ -94,69 +96,79 @@ def delete(movie_id):
         db.session.commit()
 
 
-# Create an instance of the IMDb class with a timeout of 5 seconds
-ia = imdb.IMDb(accessSystem='http', reraiseExceptions=True, timeout=5)
-search_results = []
-
-
-def search_movies(movie_title):
+# searching for the movie
+def search_movies(title):
     """
-    Searches for movies using the IMDb API.
+    Searches for movies using the OMDb API.
 
     Args:
-        movie_title (str): The title of the movie to search for.
-    """
-    global search_results
-    # Search for the movie title using the search_movie() method
-    search_results = None
-    retries = 0
-    while not search_results and retries < 3:
-        try:
-            search_results = ia.search_movie(movie_title)
-        except http.client.IncompleteRead:
-            retries += 1
-            continue
-
-
-def movies_titles_list():
-    """
-    Extracts the titles of the movies from the search results.
+        title (str): The title of the movie to search for.
 
     Returns:
-        list: A list of strings containing the titles of the movies.
+        list: A list of movie objects containing the search results.
     """
-    global search_results
+    # Make a GET request to the OMDb API with the movie title as a parameter
+    response = requests.get('http://www.omdbapi.com/', params={'apikey': '6c82bc54', 's': title})
 
-    movies_titles = []
-    for result in search_results:
-        movies_titles.append(f"{result['title']} ({result['year']})")
+    # Parse the JSON response and return the search results
+    data = response.json()
+    if data['Response'] == 'True':
+        return data['Search']
+    else:
+        return []
 
-    return movies_titles
 
-
-def get_movie_details(selection):
+def get_movie_details(movie_id):
     """
-    Gets the details of a movie using the IMDb API.
+    Gets the details of a movie using the OMDb API.
 
     Args:
-        selection (int): The index of the selected movie in the search results.
+        movie_id (str): The ID of the movie to retrieve.
 
     Returns:
         dict: A dictionary containing the details of the movie.
     """
-    global search_results
-    # Get the movie details using the get_movie() method
-    movie_id = search_results[selection - 1].getID()
-    movie_details = None
-    retries = 0
-    while not movie_details and retries < 3:
-        try:
-            movie_details = ia.get_movie(movie_id)
-        except http.client.IncompleteRead:
-            retries += 1
-            continue
+    # Make a GET request to the OMDb API with the movie ID as a parameter
+    response = requests.get('http://www.omdbapi.com/', params={'apikey': '6c82bc54', 'i': movie_id})
 
-    return movie_details
+    # Parse the JSON response and return the movie details
+    return response.json()
+
+
+def search_and_retrieve(title):
+    """
+    Searches for a movie and retrieves its details using the OMDb API.
+
+    Args:
+        title (str): The title of the movie to search for.
+
+    Returns:
+        list: A list of dictionaries containing the details of the movies.
+    """
+    # Search for the movie title
+    search_results = search_movies(title)
+
+    # Retrieve the details of the movies using multiple threads
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Create a list of futures for each movie in the search results
+        futures = [executor.submit(get_movie_details, result['imdbID']) for result in search_results]
+
+        # Wait for all futures to complete and get the results
+        details = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    # Return the details of the movies
+    return details
+
+
+# # Example usage:
+# movie_title = 'The Matrix'
+# movies_details = search_and_retrieve(movie_title)
+# print(movies_details)
+# for movie in movies_details:
+#     print(f"{movie['Title']} ({movie['Year']}) - Rating: {movie['imdbRating']}")
+#     print(f"Plot: {movie['Plot']}")
+#     print(f"Poster URL: {movie['Poster']}")
+#     print(f"Reviews: {movie['imdbVotes']} votes\n")
 
 
 # Define the routes of the Flask app
@@ -219,32 +231,51 @@ def add_movie():
     Returns:
         str: The HTML content of the add page.
     """
+    global movies_details
+
     add_form = AddMovieForm()
     if add_form.validate_on_submit():
         movie_title = add_form.title.data
-        search_movies(movie_title)
-        movies_data = movies_titles_list()
+        movies_details = search_and_retrieve(movie_title)
+        movie_titles_list = []
+        for movie in movies_details:
+            movie_titles_list.append(f"{movie['Title']} - ({movie['Year']})")
 
-        return render_template("select.html", movies_data=movies_data)
+        return render_template("select.html", movie_titles_list=movie_titles_list)
 
     return render_template("add.html", add_form=add_form)
 
 
-@app.route("/add_movie/<int:selection>/<movie_title>", methods=["POST", "GET"])
-def select_movie(selection, movie_title):
+@app.route("/add_movie/<int:movie_index>/<selected_movie_title>", methods=["POST", "GET"])
+def select_movie(movie_index, selected_movie_title):
     """
     Renders the page to select a movie from the search results.
 
     Args:
-        selection (int): The index of the selected movie in the search results.
-        movie_title (str): The title of the movie to add.
+        movie_index (int): the index of the selected movie title in the movies titles list.
+        selected_movie_title (str): The title of the movie to add.
 
     Returns:
         str: The HTML content of the movie page.
     """
-    movie_details = get_movie_details(selection)
 
-    return render_template("movie.html", movie_title=movie_title, movie_details=movie_details)
+    global movies_details
+
+    movie = movies_details[movie_index]
+
+    genres = movie['Genre']
+    rating = movie['Ratings'][0]["Value"]
+    description = movie['Plot']
+    poster_url = movie['Poster']
+
+    return render_template(
+        "movie.html",
+        selected_movie_title=selected_movie_title,
+        genres=genres,
+        rating=rating,
+        description=description,
+        poster_url=poster_url
+    )
 
 
 # Run the Flask app

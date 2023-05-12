@@ -8,28 +8,25 @@
 <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
 {% endblock %}
 
-{% block title %}{{ movie_title }}{% endblock %}
+{% block title %}{{ selected_movie_title }}{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="row">
         <div class="col-md-6">
-            <h1 class="heading">{{ movie_title }}</h1>
+            <h1 class="heading">{{ selected_movie_title }}</h1>
 
             <h3>Genres:</h3>
-            <p>{{ ', '.join(movie_details['genres']) }}</p>
+            <p>{{ genres }}</p>
 
             <h3>Rating:</h3>
-            <p>{{ movie_details['rating'] }}</p>
+            <p>{{ rating }}</p>
 
             <h3>description</h3>
-            <p>{{ movie_details['plot'][0] }}</p>
-
-            <h3>description</h3>
-            <p>{{ movie_details['plot'][0] }}</p>
+            <p>{{ description }}</p>
         </div>
-        <div class="col-md-6">
-
+        <div class="col-md-6" style="margin-top: 2%">
+            <img src="{{ poster_url }}" alt="{{ selected_movie_title }}-poster-img">
         </div>
     </div>
 </div>

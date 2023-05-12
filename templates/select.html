@@ -13,9 +13,9 @@
 {% block content %}
 <div class="container">
     <h1 class="heading">Select Movie</h1>
-    {% for i in range(movies_data|length) %}
+    {% for i in range(movie_titles_list|length) %}
         <p>
-            <a href="{{ url_for('select_movie', selection=i + 1, movie_title=movies_data[i]) }}">{{ "{}. {}".format(i + 1, movies_data[i]) }}</a>
+            <a href="{{ url_for('select_movie', movie_index=i, selected_movie_title=movie_titles_list[i]) }}">{{ movie_titles_list[i] }}</a>
         </p>
     {% endfor %}
 </div>
