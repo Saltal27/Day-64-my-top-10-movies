@@ -49,49 +49,48 @@ class AddMovieForm(FlaskForm):
 # with app.app_context():
 #     db.create_all()
 #
-# # Add a movie to the database
-# with app.app_context():
-#     new_movie = Movie(
-#         title="Phone Booth",
-#         year=2002,
-#         description="Publicist Stuart Shepard finds himself trapped in a phone booth, pinned down by an "
-#                     "extortionist's sniper rifle. Unable to leave or receive outside help, Stuart's negotiation with "
-#                     "the caller leads to a jaw-dropping climax.",
-#         rating=7.3,
-#         ranking=10,
-#         review="My favourite character was the caller.",
-#         img_url="https://image.tmdb.org/t/p/w500/tjrX2oWRCM3Tvarz38zlZM7Uc10.jpg"
-#     )
-#     db.session.add(new_movie)
-#     db.session.commit()
+# Add a movie to the database
+def add_movie_db(title, year, description, rating, ranking, review, img_url):
+    with app.app_context():
+        new_movie = Movie(
+            title=title,
+            year=year,
+            description=description,
+            rating=rating,
+            ranking=ranking,
+            review=review,
+            img_url=img_url
+        )
+        db.session.add(new_movie)
+        db.session.commit()
 
 
 # Data-changing functions
-def update_movie(movie_id, new_rating, new_review):
+def update_movie_db(db_movie_id, new_rating, new_review):
     """
     Updates an existing movie_to_update in the database with a new rating and review.
 
     Args:
-        movie_id (int): The id of the movie_to_update to update.
+        db_movie_id (int): The id of the movie_to_update to update.
         new_rating (float): The new rating of the movie_to_update.
         new_review (str): The new review of the movie_to_update.
     """
     with app.app_context():
-        movie_to_update = Movie.query.filter_by(id=movie_id).first()
+        movie_to_update = Movie.query.filter_by(id=db_movie_id).first()
         movie_to_update.rating = new_rating
         movie_to_update.review = new_review
         db.session.commit()
 
 
-def delete(movie_id):
+def delete_movie_db(db_movie_id):
     """
     Deletes a movie from the database.
 
     Args:
-        movie_id (int): The id of the movie to delete.
+        db_movie_id (int): The id of the movie to delete.
     """
     with app.app_context():
-        movie_to_delete = Movie.query.get(movie_id)
+        movie_to_delete = Movie.query.get(db_movie_id)
         db.session.delete(movie_to_delete)
         db.session.commit()
 
@@ -118,18 +117,18 @@ def search_movies(title):
         return []
 
 
-def get_movie_details(movie_id):
+def get_movie_details(imdb_movie_id):
     """
     Gets the details of a movie using the OMDb API.
 
     Args:
-        movie_id (str): The ID of the movie to retrieve.
+        imdb_movie_id (str): The ID of the movie to retrieve.
 
     Returns:
         dict: A dictionary containing the details of the movie.
     """
     # Make a GET request to the OMDb API with the movie ID as a parameter
-    response = requests.get('http://www.omdbapi.com/', params={'apikey': '6c82bc54', 'i': movie_id})
+    response = requests.get('http://www.omdbapi.com/', params={'apikey': '6c82bc54', 'i': imdb_movie_id})
 
     # Parse the JSON response and return the movie details
     return response.json()
@@ -185,13 +184,13 @@ def home():
     return render_template("index.html", all_movies=all_movies)
 
 
-@app.route("/edit_movie/<int:movie_id>", methods=["POST", "GET"])
-def edit_movie(movie_id):
+@app.route("/edit_movie/<int:db_movie_id>", methods=["POST", "GET"])
+def edit_movie(db_movie_id):
     """
     Renders the page to edit the rating and review of a movie.
 
     Args:
-        movie_id (int): The id of the movie to edit.
+        db_movie_id (int): The id of the movie to edit.
 
     Returns:
         str: The HTML content of the edit page.
@@ -200,25 +199,25 @@ def edit_movie(movie_id):
     if update_form.validate_on_submit():
         new_rating = update_form.rating.data
         new_review = update_form.review.data
-        update_movie(movie_id, new_rating, new_review)
+        update_movie_db(db_movie_id, new_rating, new_review)
 
         return redirect(url_for('home'))
 
     return render_template("edit.html", update_form=update_form)
 
 
-@app.route("/delete_movie/<int:movie_id>")
-def delete_movie(movie_id):
+@app.route("/delete_movie/<int:db_movie_id>")
+def delete_movie(db_movie_id):
     """
     Deletes a movie from the database.
 
     Args:
-        movie_id (int): The id of the movie to delete.
+        db_movie_id (int): The id of the movie to delete.
 
     Returns:
         str: A redirect to the home page.
     """
-    delete(movie_id)
+    delete_movie_db(db_movie_id)
 
     return redirect(url_for("home"))
 
@@ -239,7 +238,8 @@ def add_movie():
         movies_details = search_and_retrieve(movie_title)
         movie_titles_list = []
         for movie in movies_details:
-            movie_titles_list.append(f"{movie['Title']} - ({movie['Year']})")
+            if movie['Type'] == "movie":
+                movie_titles_list.append(f"{movie['Title']} - ({movie['Year']})")
 
         return render_template("select.html", movie_titles_list=movie_titles_list)
 
@@ -264,9 +264,10 @@ def select_movie(movie_index, selected_movie_title):
     movie = movies_details[movie_index]
 
     genres = movie['Genre']
-    rating = movie['Ratings'][0]["Value"]
+    rating = movie['imdbRating']
     description = movie['Plot']
     poster_url = movie['Poster']
+    selected_movie_title_no_year = selected_movie_title.split(" - (")[0]
 
     return render_template(
         "movie.html",
@@ -274,8 +275,32 @@ def select_movie(movie_index, selected_movie_title):
         genres=genres,
         rating=rating,
         description=description,
-        poster_url=poster_url
+        poster_url=poster_url,
+        selected_movie_title_no_year=selected_movie_title_no_year,
+        movie_index=movie_index
     )
+
+
+@app.route("/submit_movie/<selected_movie_title_no_year>/<int:movie_index>")
+def submit_movie(selected_movie_title_no_year, movie_index):
+    global movies_details
+
+    movie = movies_details[movie_index]
+
+    year = movie['Year']
+    description = movie['Plot']
+    rating = movie['imdbRating']
+    ranking = 0
+    review = "none"
+    poster_url = movie['Poster']
+
+    add_movie_db(selected_movie_title_no_year, year, description, rating, ranking, review, poster_url)
+
+    # find the movie db_id
+    movie = Movie.query.filter_by(title=selected_movie_title_no_year).first()
+
+    db_movie_id = movie.id
+    return redirect(url_for("edit_movie", db_movie_id=db_movie_id))
 
 
 # Run the Flask app

@@ -24,6 +24,14 @@
 
             <h3>description</h3>
             <p>{{ description }}</p>
+            <div style="margin: 10% 0 10%;">
+                <a class="button delete-button" style="margin-right: 3%;"
+                   href="#" onclick="window.history.back();">Previous Page</a>
+                <a class="button"
+                   href="{{ url_for('submit_movie', selected_movie_title_no_year=selected_movie_title_no_year, movie_index=movie_index) }}"
+                >Submit Movie</a>
+
+            </div>
         </div>
         <div class="col-md-6" style="margin-top: 2%">
             <img src="{{ poster_url }}" alt="{{ selected_movie_title }}-poster-img">
