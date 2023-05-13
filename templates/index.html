@@ -19,30 +19,32 @@
     <p class="description">These are my all-time favourite movies.</p>
 
     {% if all_movies != []: %}
-    <div class="card">
-        <div class="front" style="background-image: url('{{ all_movies[0].img_url }}');">
-            <p class="large">{{ all_movies[0].ranking }}</p>
-        </div>
-        <div class="back">
-            <div>
-                <div class="title">{{ all_movies[0].title }} <span
-                        class="release_date">({{ all_movies[0].year }})</span></div>
-                <div class="rating">
-                    <label>{{ all_movies[0].rating }}</label>
-                    <i class="fas fa-star star"></i>
+    {% for movie in all_movies: %}
+        <div class="card">
+            <div class="front" style="background-image: url('{{ movie.img_url }}');">
+                <p class="large">{{ movie.ranking }}</p>
+            </div>
+            <div class="back">
+                <div>
+                    <div class="title">{{ movie.title }} <span
+                            class="release_date">({{ movie.year }})</span></div>
+                    <div class="rating">
+                        <label>{{ movie.rating }}</label>
+                        <i class="fas fa-star star"></i>
+                    </div>
+                    <p class="review">"{{ movie.review }}"</p>
+                    <p class="overview">
+                        {{ movie.description }}
+                    </p>
+
+                    <a class="button" href="{{ url_for('edit_movie', db_movie_id=movie.id) }}">Update</a>
+                    <a class="button delete-button"
+                       href="{{ url_for('delete_movie', db_movie_id=movie.id) }}">Delete</a>
+
                 </div>
-                <p class="review">"{{ all_movies[0].review }}"</p>
-                <p class="overview">
-                    {{ all_movies[0].description }}
-                </p>
-
-                <a class="button" href="{{ url_for('edit_movie', db_movie_id=all_movies[0].id) }}">Update</a>
-                <a class="button delete-button"
-                   href="{{ url_for('delete_movie', db_movie_id=all_movies[0].id) }}">Delete</a>
-
             </div>
         </div>
-    </div>
+    {% endfor %}
     {% endif %}
 </div>
 

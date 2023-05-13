@@ -51,6 +51,18 @@ class AddMovieForm(FlaskForm):
 #
 # Add a movie to the database
 def add_movie_db(title, year, description, rating, ranking, review, img_url):
+    """
+    Adds a movie to the database.
+
+    Args:
+        title (str): The title of the movie.
+        year (int): The year the movie was released.
+        description (str): A brief description of the movie.
+        rating (float): The rating of the movie.
+        ranking (int): The ranking of the movie.
+        review (str): A review of the movie.
+        img_url (str): The URL of the movie's poster image.
+    """
     with app.app_context():
         new_movie = Movie(
             title=title,
@@ -93,6 +105,22 @@ def delete_movie_db(db_movie_id):
         movie_to_delete = Movie.query.get(db_movie_id)
         db.session.delete(movie_to_delete)
         db.session.commit()
+
+
+def order_movies_db():
+    """
+    Orders the movies in the database by their rating.
+    """
+    with app.app_context():
+        movies = Movie.query.all()
+        sorted_movies = sorted(movies, key=lambda x: x.rating, reverse=True)
+
+        # update the ranking attribute of each movie based on its order
+        for i, movie in enumerate(sorted_movies):
+            movie.ranking = i + 1
+            db.session.commit()
+
+    return sorted_movies
 
 
 # searching for the movie
@@ -159,17 +187,6 @@ def search_and_retrieve(title):
     return details
 
 
-# # Example usage:
-# movie_title = 'The Matrix'
-# movies_details = search_and_retrieve(movie_title)
-# print(movies_details)
-# for movie in movies_details:
-#     print(f"{movie['Title']} ({movie['Year']}) - Rating: {movie['imdbRating']}")
-#     print(f"Plot: {movie['Plot']}")
-#     print(f"Poster URL: {movie['Poster']}")
-#     print(f"Reviews: {movie['imdbVotes']} votes\n")
-
-
 # Define the routes of the Flask app
 @app.route("/")
 def home():
@@ -179,9 +196,15 @@ def home():
     Returns:
         str: The HTML content of the home page.
     """
-    all_movies = db.session.query(Movie).all()
+    with app.app_context():
+        movies = Movie.query.all()
+        sorted_movies = sorted(movies, key=lambda x: x.rating, reverse=True)
 
-    return render_template("index.html", all_movies=all_movies)
+        # update the ranking attribute of each movie based on its order
+        for i, movie in enumerate(sorted_movies):
+            movie.ranking = i + 1
+
+    return render_template("index.html", all_movies=sorted_movies)
 
 
 @app.route("/edit_movie/<int:db_movie_id>", methods=["POST", "GET"])
@@ -201,6 +224,7 @@ def edit_movie(db_movie_id):
         new_review = update_form.review.data
         update_movie_db(db_movie_id, new_rating, new_review)
 
+        order_movies_db()
         return redirect(url_for('home'))
 
     return render_template("edit.html", update_form=update_form)
@@ -218,6 +242,7 @@ def delete_movie(db_movie_id):
         str: A redirect to the home page.
     """
     delete_movie_db(db_movie_id)
+    order_movies_db()
 
     return redirect(url_for("home"))
 
@@ -283,6 +308,17 @@ def select_movie(movie_index, selected_movie_title):
 
 @app.route("/submit_movie/<selected_movie_title_no_year>/<int:movie_index>")
 def submit_movie(selected_movie_title_no_year, movie_index):
+    """
+    Adds a movie to the database.
+
+    Args:
+        selected_movie_title_no_year (str): The title of the movie to add.
+        movie_index (int): the index of the selected movie title in the movies titles list.
+
+    Returns:
+        str: A redirect to the home page.
+    """
+
     global movies_details
 
     movie = movies_details[movie_index]
